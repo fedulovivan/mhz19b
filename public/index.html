@@ -26,17 +26,13 @@
 
             <script type="text/javascript">
 
-                var socket = io('http://localhost:8888');
-                socket.on('news', function (data) {
-                    console.log(data);
-                    socket.emit('my other event', { my: 'data' });
-                });
-
                 $.getJSON(
 
-                    '/json?today=1',
+                    '/json',
 
                     function (data) {
+
+                        // data = [];
 
                         Highcharts.setOptions({
                             time: {
@@ -44,20 +40,25 @@
                             }
                         });
 
-                        Highcharts.chart('container', {
+                        const chart = Highcharts.chart('container', {
+
+                            credits: {
+                                enabled: false
+                            },
+
                             chart: {
                                 zoomType: 'x'
                             },
                             title: {
-                                text: 'co2 ppm over time'
+                                text: 'co2 ppm for last hour'
                             },
                             xAxis: {
                                 type: 'datetime'
                             },
                             yAxis: {
-                                title: {
-                                    text: 'co2 ppm'
-                                }
+                                min: 350,
+                                max: 2500,
+                                title: null
                             },
                             legend: {
                                 enabled: false
@@ -94,7 +95,31 @@
                                 name: 'co2 ppm',
                                 data,
                             }]
+
                         });
+
+                        const socket = io('http://localhost:8888');
+                        socket.on('ppm', function(point) {
+                            const { timestamp, ppm } = point;
+
+                            const series = chart.series[0];
+
+                            const { points } = series;
+
+                            const size = points.length
+                                ? points[points.length - 1].x - points[0].x
+                                : null;
+
+                            const shift = size > 60 * 60 * 1000;
+
+                            series.addPoint(
+                                [ timestamp, ppm ],
+                                true,
+                                shift,
+                            );
+                            console.log('ws received point: ', point);
+                        });
+
                     }
                 );
             </script>

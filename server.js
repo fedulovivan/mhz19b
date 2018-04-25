@@ -19,19 +19,21 @@ const {
     PUBLIC_PATH,
 } = require('./const');
 
-ipc.config.id = 'a-unique-process-name1';
-ipc.config.retry = 1500;
-ipc.config.silent = true;
-ipc.serve(
-    () => ipc.server
-        .on('a-unique-message-name', message => {
-            console.log('a-unique-message-name received:', message);
-        })
-        .on('new-ppm', message => {
-            console.log('new-ppm received:', message);
-        })
-);
-ipc.server.start();
+let ipcServer;
+
+async function getIPC() {
+    return new Promise((resolve, reject) => {
+        ipc.config.id = 'a-unique-process-name1';
+        ipc.config.retry = 1500;
+        ipc.config.silent = true;
+        ipc.serve(() => resolve(ipc.server));
+        ipc.server.start();
+    });
+}
+
+// () => ipc.server.on('ppm', point => {
+//     console.log('new ppm received:', point);
+// })
 
 const app = Express();
 const server = Http.Server(app);
@@ -39,22 +41,40 @@ const io = SocketIo(server);
 
 const db = new Datastore({
     filename: STORAGE_FILENAME,
-    autoload: true,
-    onload: err => {
-        if (err) {
-            console.error(`failed to load database: ${err}`);
-        } else {
-            console.log(`points database ${STORAGE_FILENAME} was loaded`);
-        }
-    }
+    autoload: false,
+    // onload: err => {
+    //     if (err) {
+    //         console.error(`failed to load database: ${err}`);
+    //     } else {
+    //         console.log(`points database ${STORAGE_FILENAME} was loaded`);
+    //     }
+    // }
 });
 
-io.on('connection', function (socket) {
-    socket.emit('news', { hello: 'world' });
-    socket.on('my other event', function (data) {
-      console.log(data);
-    });
+// async function acquireIOConn() {
+//     return new Promise((resolve, reject) => {
+//         io.on('connection', socket => resolve(socket));
+//     });
+// }
+
+io.on('connection', async function(socket) {
+
+    console.log('new io connection');
+
+    if (!ipcServer) {
+        console.log('awaiting ipc server to init');
+        ipcServer = await getIPC();
+    } else {
+        console.log('ipc server already initialized');
+    }
+
+    console.log('ipc server ready');
+
+    ipcServer.on('ppm', point => socket.emit('ppm', point));
+
 });
+
+// TODO do not forget to delete ipc listener on io disconnect
 
 app.get(
     '/json',
@@ -66,7 +86,7 @@ app.get(
             console.log(`query params: ${JSON.stringify(req.query)}`);
         }
 
-        const today = req.query.today === '1';
+        // const today = req.query.today === '1';
 
         const where = {
             // exclude points generated at the moment of sensor startup
@@ -75,15 +95,18 @@ app.get(
             },
         };
 
-        if (today) {
-            Object.assign(where, {
-                timestamp: {
-                    $gt: moment().startOf('day').toDate()
-                },
-            });
-        }
+        // if (today) {
+        // }
 
-        db
+        Object.assign(where, {
+            timestamp: {
+                // $gt: moment().startOf('day').toDate()
+                $gt: moment().subtract(1, 'hour')
+            },
+        });
+
+        db.loadDatabase(() => {
+            db
             .find(where)
             .sort({ timestamp: 1 })
             .exec((err, points) => {
@@ -91,6 +114,9 @@ app.get(
                 console.log(`sending response json with points`);
                 res.json(json);
             });
+        });
+
+        // .limit(30)
     }
 );
 

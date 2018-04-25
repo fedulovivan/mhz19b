@@ -16,6 +16,7 @@
 
 const SerialPort = require('serialport');
 const Datastore = require('nedb');
+const ipc = require('node-ipc');
 
 const {
     APP_PORT,
@@ -25,9 +26,23 @@ const {
     MH_REQUEST_INTERVAL,
 } = require('./const');
 
+ipc.config.id = 'a-unique-process-name2';
+ipc.config.retry = 1500;
+ipc.config.silent = true;
+
 const GET_CO2_REQUEST = Buffer.from([
     0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79
 ]);
+
+async function acquireServerIPCObserver() {
+    return new Promise((resolve, reject) => {
+        ipc.connectTo('a-unique-process-name1', () => {
+            resolve(ipc.of['a-unique-process-name1']);
+        });
+    });
+};
+
+let serverIPCObserver;
 
 const port = new SerialPort(
     UART_ADAPTER,  {
@@ -80,6 +95,7 @@ function onPortData(buffer) {
     const sensorNum = buffer[1];
     const co2HighByte = buffer[2];
     const co2LowByte = buffer[3];
+    const temperatureRaw = buffer[4];
 
     if (startByte === 0xFF && sensorNum === 0x86) {
 
@@ -88,9 +104,19 @@ function onPortData(buffer) {
             const ppm = (256 * co2HighByte) + co2LowByte;
             console.log(`measured ppm: ${ppm}`);
 
+            const temp = temperatureRaw - 40;
+
+            const timestamp = new Date();
+
             db.insert({
-                timestamp: new Date(),
+                timestamp,
                 ppm,
+            });
+
+            serverIPCObserver.emit('ppm', {
+                ppm,
+                timestamp: timestamp.getTime(),
+                temp,
             });
 
         } else {
@@ -106,8 +132,9 @@ function onPortData(buffer) {
     }
 }
 
-function onPortOpen() {
+async function onPortOpen() {
     console.log(`serial port was opened`);
+    serverIPCObserver = await acquireServerIPCObserver();
     sendCO2Request();
     setInterval(sendCO2Request, MH_REQUEST_INTERVAL);
 }
