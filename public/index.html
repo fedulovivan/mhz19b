@@ -7,6 +7,8 @@
         <script src="https://code.highcharts.com/highcharts.js"></script>
         <script src="https://code.highcharts.com/modules/exporting.js"></script>
         <script src="https://code.highcharts.com/modules/export-data.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.dev.js"></script>
+
 
     </head>
 
@@ -23,6 +25,12 @@
             <div id="container"></div>
 
             <script type="text/javascript">
+
+                var socket = io('http://localhost:8888');
+                socket.on('news', function (data) {
+                    console.log(data);
+                    socket.emit('my other event', { my: 'data' });
+                });
 
                 $.getJSON(
 
