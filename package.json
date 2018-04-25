@@ -1,0 +1,16 @@
+{
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "express": "^4.16.3",
+    "lodash": "^4.17.10",
+    "moment": "^2.22.1",
+    "nedb": "^1.8.0",
+    "opn": "^5.3.0",
+    "serialport": "^6.2.0"
+  },
+  "scripts": {
+    "mh": "node mh.js",
+    "server": "node server.js"
+  }
+}
