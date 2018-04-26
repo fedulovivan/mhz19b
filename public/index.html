@@ -8,7 +8,7 @@
         <script src="https://code.highcharts.com/modules/exporting.js"></script>
         <script src="https://code.highcharts.com/modules/export-data.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.dev.js"></script>
-
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment.min.js"></script>
 
     </head>
 
@@ -17,6 +17,44 @@
         #container {
             height: 95vh;
         }
+
+        /* @import 'https://code.highcharts.com/css/highcharts.css'; */
+
+        /* .highcharts-point {
+            stroke: white;
+        } */
+
+        /* .highcharts-graph.zone-0 {
+            stroke: #f7a35c;
+        } */
+
+        .highcharts-area.zone-good {
+            fill: #DCEDC8;
+        }
+        .highcharts-area.zone-warn {
+            fill: #FFECB3;
+        }
+        .highcharts-area.zone-bad {
+            fill: #FFAB91;
+        }
+
+        /* .highcharts-point.zone-0 {
+            fill: #f7a35c;
+        } */
+
+        /* .highcharts-graph.zone-1 {
+            stroke: #7cb5ec;
+        } */
+
+        /* .highcharts-point.zone-1 {
+            fill: #7cb5ec;
+        } */
+        /* .highcharts-graph.zone-2 {
+            stroke: #90ed7d;
+        } */
+        /* .highcharts-point.zone-2 {
+            fill: #90ed7d;
+        } */
 
     </style>
 
@@ -27,98 +65,123 @@
             <script type="text/javascript">
 
                 $.getJSON(
+                    '/constants',
+                    constants => {
 
-                    '/json',
+                        const {
+                            APP_PORT,
+                            APP_HOST,
+                            STORAGE_FILENAME,
+                            PUBLIC_PATH,
+                            IPC_ID_HTTP_SERVER,
+                            WINDOW_SECONDS,
+                        } = constants;
 
-                    function (data) {
+                        $.getJSON(
 
-                        // data = [];
+                            '/json',
 
-                        Highcharts.setOptions({
-                            time: {
-                                timezoneOffset: -3 * 60
-                            }
-                        });
+                            function (data) {
 
-                        const chart = Highcharts.chart('container', {
 
-                            credits: {
-                                enabled: false
-                            },
 
-                            chart: {
-                                zoomType: 'x'
-                            },
-                            title: {
-                                text: 'co2 ppm for last hour'
-                            },
-                            xAxis: {
-                                type: 'datetime'
-                            },
-                            yAxis: {
-                                min: 350,
-                                max: 2500,
-                                title: null
-                            },
-                            legend: {
-                                enabled: false
-                            },
-                            plotOptions: {
-                                area: {
-                                    fillColor: {
-                                        linearGradient: {
-                                            x1: 0,
-                                            y1: 0,
-                                            x2: 0,
-                                            y2: 1
+                                Highcharts.setOptions({
+                                    time: {
+                                        timezoneOffset: -3 * 60
+                                    }
+                                });
+
+                                const chart = Highcharts.chart('container', {
+
+                                    credits: {
+                                        enabled: false
+                                    },
+
+                                    chart: {
+                                        zoomType: 'x'
+                                    },
+                                    title: {
+                                        text: `co2 ppm for last ${moment().subtract(WINDOW_SECONDS, 'seconds').toNow(true)}`
+                                    },
+                                    xAxis: {
+                                        type: 'datetime'
+                                    },
+                                    yAxis: {
+                                        // min: 350,
+                                        // max: 2500,
+                                        title: null
+                                    },
+                                    legend: {
+                                        enabled: false
+                                    },
+                                    plotOptions: {
+                                        area: {
+                                            // fillColor: {
+                                            //     linearGradient: {
+                                            //         x1: 0,
+                                            //         y1: 0,
+                                            //         x2: 0,
+                                            //         y2: 1
+                                            //     },
+                                            //     stops: [
+                                            //         [0, Highcharts.getOptions().colors[0]],
+                                            //         [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
+                                            //     ]
+                                            // },
+                                            marker: {
+                                                radius: 2
+                                            },
+                                            lineWidth: 1,
+                                            states: {
+                                                hover: {
+                                                    lineWidth: 1
+                                                }
+                                            },
+                                            threshold: null,
                                         },
-                                        stops: [
-                                            [0, Highcharts.getOptions().colors[0]],
-                                            [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
-                                        ]
-                                    },
-                                    marker: {
-                                        radius: 2
-                                    },
-                                    lineWidth: 1,
-                                    states: {
-                                        hover: {
-                                            lineWidth: 1
+                                        series: {
+                                            zones: [{
+                                                value: 600,
+                                                className: 'zone-good'
+                                            }, {
+                                                value: 1100,
+                                                className: 'zone-warn'
+                                            }, {
+                                                className: 'zone-bad'
+                                            }],
+                                            // threshold: -10
                                         }
                                     },
-                                    threshold: null
-                                }
-                            },
 
-                            series: [{
-                                type: 'area',
-                                name: 'co2 ppm',
-                                data,
-                            }]
+                                    series: [{
+                                        type: 'area',
+                                        name: 'co2 ppm',
+                                        data,
+                                    }]
 
-                        });
+                                });
 
-                        const socket = io('http://localhost:8888');
-                        socket.on('ppm', function(point) {
-                            const { timestamp, ppm } = point;
+                                const socket = io(`http://${APP_HOST}:${APP_PORT}`);
 
-                            const series = chart.series[0];
+                                socket.on('ppm', function(point) {
+                                    const { timestamp, ppm } = point;
+                                    const series = chart.series[0];
+                                    const { points } = series;
+                                    const xSize = points.length
+                                        ? points[points.length - 1].x - points[0].x
+                                        : null;
+                                    const needShift = xSize > WINDOW_SECONDS * 1000;
+                                    series.addPoint(
+                                        [ timestamp, ppm ],
+                                        true,
+                                        needShift,
+                                    );
+                                    console.log('ws received point: ', point);
+                                });
 
-                            const { points } = series;
+                            }
 
-                            const size = points.length
-                                ? points[points.length - 1].x - points[0].x
-                                : null;
-
-                            const shift = size > 60 * 60 * 1000;
-
-                            series.addPoint(
-                                [ timestamp, ppm ],
-                                true,
-                                shift,
-                            );
-                            console.log('ws received point: ', point);
-                        });
+                        );
 
                     }
                 );
