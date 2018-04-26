@@ -102,9 +102,10 @@ function onPortData(buffer) {
         if (receivedCrc === crc) {
 
             const ppm = (256 * co2HighByte) + co2LowByte;
-            console.log(`measured ppm: ${ppm}`);
 
             const temp = temperatureRaw - 40;
+
+            console.log(`measured ppm: ${ppm} and temperature: ${temp}`);
 
             const timestamp = new Date();
 
