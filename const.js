@@ -8,5 +8,5 @@ module.exports = {
     MH_REQUEST_INTERVAL: 5000,
     IPC_ID_HTTP_SERVER: 'ipc-http-server',
     IPC_ID_MH: 'ipc-mh',
-    WINDOW_SECONDS: 3600 * 24 * 7,
+    // WINDOW_SECONDS: 300,
 };

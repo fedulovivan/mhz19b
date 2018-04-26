@@ -20,7 +20,7 @@ const {
     STORAGE_FILENAME,
     PUBLIC_PATH,
     IPC_ID_HTTP_SERVER,
-    WINDOW_SECONDS,
+    // WINDOW_SECONDS,
 } = constants;
 
 // init IPC server
@@ -75,13 +75,15 @@ app.get(
             console.log(`query params: ${JSON.stringify(req.query)}`);
         }
 
+        const windowSize = parseInt(req.query.windowSize, 10);
+
         const where = {
             // exclude points generated at the moment of sensor startup
             ppm: {
                 $ne: 410
             },
             timestamp: {
-                $gt: moment().subtract(WINDOW_SECONDS, 'seconds')
+                $gt: moment().subtract(windowSize, 'seconds')
             },
         };
 
