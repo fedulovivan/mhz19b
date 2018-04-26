@@ -17,6 +17,7 @@
 const SerialPort = require('serialport');
 const Datastore = require('nedb');
 const ipc = require('node-ipc');
+const internalBus = new (require('events'))();
 
 const {
     APP_PORT,
@@ -24,36 +25,45 @@ const {
     PUBLIC_PATH,
     UART_ADAPTER,
     MH_REQUEST_INTERVAL,
+    IPC_ID_HTTP_SERVER,
+    IPC_ID_MH,
 } = require('./const');
 
-ipc.config.id = 'a-unique-process-name2';
-ipc.config.retry = 1500;
-ipc.config.silent = true;
+// TODO delete this
+// setInterval(() => {
+//     internalBus.emit('ppm', {
+//         ppm: 1,
+//         timestamp: 2,
+//         temp: Math.random(),
+//     });
+// }, 3000);
+// TODO delete this
 
 const GET_CO2_REQUEST = Buffer.from([
     0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79
 ]);
 
-async function acquireServerIPCObserver() {
-    return new Promise((resolve, reject) => {
-        ipc.connectTo('a-unique-process-name1', () => {
-            resolve(ipc.of['a-unique-process-name1']);
-        });
-    });
-};
+// init IPC client
+ipc.config.id = IPC_ID_MH;
+ipc.config.retry = 1500;
+ipc.config.silent = true;
+ipc.connectTo(IPC_ID_HTTP_SERVER, () => {
+    console.log(`ipc client id=${IPC_ID_MH} is ready to communicate with server id=${IPC_ID_HTTP_SERVER}`);
+    const ipcClient = ipc.of[IPC_ID_HTTP_SERVER];
+    internalBus.on('ppm', point => ipcClient.emit('ppm', point));
+});
 
-let serverIPCObserver;
-
+// init serial port
 const port = new SerialPort(
     UART_ADAPTER,  {
         baudRate: 9600,
     }
 );
-
 port.on('data', onPortData);
 port.on('open', onPortOpen);
 port.on('error', onPortError);
 
+// init database
 const db = new Datastore({
     filename: STORAGE_FILENAME,
     autoload: true
@@ -113,7 +123,7 @@ function onPortData(buffer) {
                 ppm,
             });
 
-            serverIPCObserver.emit('ppm', {
+            internalBus.emit('ppm', {
                 ppm,
                 timestamp: timestamp.getTime(),
                 temp,
@@ -132,9 +142,8 @@ function onPortData(buffer) {
     }
 }
 
-async function onPortOpen() {
+function onPortOpen() {
     console.log(`serial port was opened`);
-    serverIPCObserver = await acquireServerIPCObserver();
     sendCO2Request();
     setInterval(sendCO2Request, MH_REQUEST_INTERVAL);
 }

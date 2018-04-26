@@ -6,34 +6,38 @@
 const Datastore = require('nedb');
 const moment = require('moment');
 const Express = require('express');
-const opn = require('opn');
 const { size } = require('lodash/collection');
 const SocketIo = require('socket.io');
 const Http = require('http');
 const ipc = require('node-ipc');
+const internalBus = new (require('events'))();
+// const opn = require('opn');
 
+const constants = require('./const');
 const {
     APP_PORT,
     APP_HOST,
     STORAGE_FILENAME,
     PUBLIC_PATH,
-} = require('./const');
+    IPC_ID_HTTP_SERVER,
+    WINDOW_SECONDS,
+} = constants;
 
-let ipcServer;
-
-async function getIPC() {
-    return new Promise((resolve, reject) => {
-        ipc.config.id = 'a-unique-process-name1';
-        ipc.config.retry = 1500;
-        ipc.config.silent = true;
-        ipc.serve(() => resolve(ipc.server));
-        ipc.server.start();
-    });
-}
-
-// () => ipc.server.on('ppm', point => {
-//     console.log('new ppm received:', point);
-// })
+// init IPC server
+let ipcClientIdSeq = 0;
+ipc.config.id = IPC_ID_HTTP_SERVER;
+ipc.config.retry = 1500;
+ipc.config.silent = true;
+ipc.serve();
+ipc.server.on('start', () => console.log(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
+ipc.server.on('ppm', point => internalBus.emit('ppm', point));
+ipc.server.on('connect', socket => {
+    const clientId = ++ipcClientIdSeq;
+    console.log(`new ipc client connection id=${clientId}`);
+    socket.on('close', () => console.log(`ipc client id=${clientId} socket closed`));
+});
+// ipc.server.on('error', error => console.error(`error: ${error}`));
+ipc.server.start();
 
 const app = Express();
 const server = Http.Server(app);
@@ -42,42 +46,27 @@ const io = SocketIo(server);
 const db = new Datastore({
     filename: STORAGE_FILENAME,
     autoload: false,
-    // onload: err => {
-    //     if (err) {
-    //         console.error(`failed to load database: ${err}`);
-    //     } else {
-    //         console.log(`points database ${STORAGE_FILENAME} was loaded`);
-    //     }
-    // }
 });
 
-// async function acquireIOConn() {
-//     return new Promise((resolve, reject) => {
-//         io.on('connection', socket => resolve(socket));
-//     });
-// }
-
-io.on('connection', async function(socket) {
-
-    console.log('new io connection');
-
-    if (!ipcServer) {
-        console.log('awaiting ipc server to init');
-        ipcServer = await getIPC();
-    } else {
-        console.log('ipc server already initialized');
-    }
-
-    console.log('ipc server ready');
-
-    ipcServer.on('ppm', point => socket.emit('ppm', point));
-
+io.on('connection', function(socket) {
+    console.log(`new ws connection id=${socket.id}`);
+    const ppmHandler = point => socket.emit('ppm', point);
+    internalBus.on('ppm', ppmHandler);
+    socket.on('disconnect', () => {
+        console.log(`ws id=${socket.id} disconnected`);
+        internalBus.removeListener('ppm', ppmHandler);
+    });
 });
-
-// TODO do not forget to delete ipc listener on io disconnect
 
 app.get(
+    '/constants',
+    (req, res) => res.json(constants)
+);
+
+app.get(
+
     '/json',
+
     (req, res) => {
 
         console.log(`received request to ${req.path}`);
@@ -86,26 +75,28 @@ app.get(
             console.log(`query params: ${JSON.stringify(req.query)}`);
         }
 
-        // const today = req.query.today === '1';
-
         const where = {
             // exclude points generated at the moment of sensor startup
             ppm: {
                 $ne: 410
             },
+            timestamp: {
+                $gt: moment().subtract(WINDOW_SECONDS, 'seconds')
+            },
         };
 
+        // $gt: moment().startOf('day').toDate()
+        // const today = req.query.today === '1';
         // if (today) {
         // }
+        // .limit(30)
+        // Object.assign(where, {
+        // });
 
-        Object.assign(where, {
-            timestamp: {
-                // $gt: moment().startOf('day').toDate()
-                $gt: moment().subtract(1, 'hour')
-            },
-        });
-
-        db.loadDatabase(() => {
+        db.loadDatabase(error => {
+            if (error) {
+                return res.json({ error });
+            }
             db
             .find(where)
             .sort({ timestamp: 1 })
@@ -116,7 +107,6 @@ app.get(
             });
         });
 
-        // .limit(30)
     }
 );
 
@@ -128,7 +118,8 @@ server.listen(APP_PORT, (err) => {
     } else {
         console.log(`listening on ${APP_HOST}:${APP_PORT}`)
         const browserLink = `http://${APP_HOST}:${APP_PORT}/`;
-        console.log(`opening browser at ${browserLink}`)
-        // opn(browserLink);
+        console.log(`open browser at ${browserLink}`)
     }
 });
+
+// opn(browserLink);
