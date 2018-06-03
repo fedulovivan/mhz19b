@@ -69,6 +69,8 @@ app.get(
 
     (req, res) => {
 
+        const tick = Date.now();
+
         console.log(`received request to ${req.path}`);
 
         if (size(req.query)) {
@@ -78,22 +80,14 @@ app.get(
         const windowSize = parseInt(req.query.windowSize, 10);
 
         const where = {
-            // exclude points generated at the moment of sensor startup
             ppm: {
+                // exclude points generated at the moment of sensor startup
                 $ne: 410
             },
             timestamp: {
                 $gt: moment().subtract(windowSize, 'seconds')
             },
         };
-
-        // $gt: moment().startOf('day').toDate()
-        // const today = req.query.today === '1';
-        // if (today) {
-        // }
-        // .limit(30)
-        // Object.assign(where, {
-        // });
 
         db.loadDatabase(error => {
             if (error) {
@@ -104,7 +98,8 @@ app.get(
             .sort({ timestamp: 1 })
             .exec((err, points) => {
                 const json = points.map(({ timestamp, ppm }) => [timestamp.getTime(), ppm]);
-                console.log(`sending response json with points`);
+                const delta = Date.now() - tick;
+                console.log(`data prepared in ${delta}ms, sending response`);
                 res.json(json);
             });
         });
