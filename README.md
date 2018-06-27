@@ -8,6 +8,11 @@ Application is written on javascript and consists of two separate modules commun
 - Sensor agent - sensor UART client which polls sensor each N seconsds and stores received amount of CO2 PPM into persistent database
 - Web UI - http server which handles web UI for viewing chart with collected statistics
 
+# Screenshots
+
+![gui](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/gui.png)
+![console](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/console.png)
+
 # Steps to launch
 
 - Connect sensor with serial adaptor
