@@ -31,4 +31,4 @@ Application is written on javascript and consists of two separate modules commun
 
 # Schematics
 
-tbd
+![Schematics](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/Schematics.png)
