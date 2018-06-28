@@ -10,8 +10,8 @@ Application is written on javascript and consists of two separate modules commun
 
 # Screenshots
 
-![gui](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/gui.png)
 ![console](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/console.png)
+![gui](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/gui.png)
 
 # Steps to launch
 
