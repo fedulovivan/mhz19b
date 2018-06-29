@@ -21,6 +21,7 @@ const {
     PUBLIC_PATH,
     IPC_ID_HTTP_SERVER,
     // WINDOW_SECONDS,
+    MESSAGE_NAME,
 } = constants;
 
 // init IPC server
@@ -30,7 +31,7 @@ ipc.config.retry = 1500;
 ipc.config.silent = true;
 ipc.serve();
 ipc.server.on('start', () => console.log(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
-ipc.server.on('ppm', point => internalBus.emit('ppm', point));
+ipc.server.on(MESSAGE_NAME, point => internalBus.emit(MESSAGE_NAME, point));
 ipc.server.on('connect', socket => {
     const clientId = ++ipcClientIdSeq;
     console.log(`new ipc client connection id=${clientId}`);
@@ -50,11 +51,11 @@ const db = new Datastore({
 
 io.on('connection', function(socket) {
     console.log(`new ws connection id=${socket.id}`);
-    const ppmHandler = point => socket.emit('ppm', point);
-    internalBus.on('ppm', ppmHandler);
+    const ppmHandler = point => socket.emit(MESSAGE_NAME, point);
+    internalBus.on(MESSAGE_NAME, ppmHandler);
     socket.on('disconnect', () => {
         console.log(`ws id=${socket.id} disconnected`);
-        internalBus.removeListener('ppm', ppmHandler);
+        internalBus.removeListener(MESSAGE_NAME, ppmHandler);
     });
 });
 

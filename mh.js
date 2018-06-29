@@ -27,17 +27,8 @@ const {
     MH_REQUEST_INTERVAL,
     IPC_ID_HTTP_SERVER,
     IPC_ID_MH,
+    MESSAGE_NAME,
 } = require('./const');
-
-// TODO delete this
-// setInterval(() => {
-//     internalBus.emit('ppm', {
-//         ppm: 1,
-//         timestamp: 2,
-//         temp: Math.random(),
-//     });
-// }, 3000);
-// TODO delete this
 
 const GET_CO2_REQUEST = Buffer.from([
     0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79
@@ -50,7 +41,7 @@ ipc.config.silent = true;
 ipc.connectTo(IPC_ID_HTTP_SERVER, () => {
     console.log(`ipc client id=${IPC_ID_MH} is ready to communicate with server id=${IPC_ID_HTTP_SERVER}`);
     const ipcClient = ipc.of[IPC_ID_HTTP_SERVER];
-    internalBus.on('ppm', point => ipcClient.emit('ppm', point));
+    internalBus.on(MESSAGE_NAME, point => ipcClient.emit(MESSAGE_NAME, point));
 });
 
 // init serial port
@@ -113,21 +104,22 @@ function onPortData(buffer) {
 
             const ppm = (256 * co2HighByte) + co2LowByte;
 
-            const temp = temperatureRaw - 40;
+            const temperature = temperatureRaw - 40;
 
-            console.log(`measured ppm: ${ppm} and temperature: ${temp}`);
+            console.log(`measured ppm: ${ppm} and temperature: ${temperature}`);
 
             const timestamp = new Date();
 
             db.insert({
                 timestamp,
                 ppm,
+                temperature,
             });
 
-            internalBus.emit('ppm', {
-                ppm,
+            internalBus.emit(MESSAGE_NAME, {
                 timestamp: timestamp.getTime(),
-                temp,
+                ppm,
+                temperature,
             });
 
         } else {

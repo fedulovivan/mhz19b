@@ -2,20 +2,53 @@
 <html>
 
     <head>
-
         <script src="https://code.highcharts.com/highcharts.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.dev.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment.min.js"></script>
-
-        <!-- <script src="https://code.highcharts.com/modules/exporting.js"></script>
-        <script src="https://code.highcharts.com/modules/export-data.js"></script> -->
-
     </head>
 
     <style type="text/css">
 
         #container {
-            height: 95vh;
+            height: calc(100vh - 48px);
+        }
+
+        #ppm,
+        #temp {
+            position: fixed;
+            right: 0;
+            font-size: 36px;
+            margin: 15px;
+            color: #777;
+            /* background: #DCEDC8;
+            border-radius: 5px;
+            padding: 5px; */
+        }
+
+        .controls {
+            display: flex;
+        }
+        .controls,
+        .controls > select
+        {
+            font-size: 24px;
+            color: #777;
+        }
+
+        #ppm {
+            top: 0
+        }
+        #temp {
+            right: 34px;
+            top: 36px
+        }
+
+        #temp:after {
+            content: ' °C';
+        }
+
+        #ppm:after {
+            content: ' PPM';
         }
 
         .highcharts-area.zone-good {
@@ -31,69 +64,46 @@
             opacity: .5;
         }
 
-        /* @import 'https://code.highcharts.com/css/highcharts.css'; */
-
-        /* .highcharts-point {
-            stroke: white;
-        } */
-
-        /* .highcharts-graph.zone-0 {
-            stroke: #f7a35c;
-        } */
-
-        /* .highcharts-point.zone-0 {
-            fill: #f7a35c;
-        } */
-
-        /* .highcharts-graph.zone-1 {
-            stroke: #7cb5ec;
-        } */
-
-        /* .highcharts-point.zone-1 {
-            fill: #7cb5ec;
-        } */
-        /* .highcharts-graph.zone-2 {
-            stroke: #90ed7d;
-        } */
-        /* .highcharts-point.zone-2 {
-            fill: #90ed7d;
-        } */
-
     </style>
 
     <body>
 
-            window size, past <select id="windowSize">
-                <option value="600">10 minutes</option>
-                <option value="1800">30 minutes</option>
-                <option value="3600" selected>1 hour</option>
-                <option value="10800">3 hours</option>
-                <option value="43200">12 hours</option>
-                <option value="86400">1 day</option>
-                <option value="604800">7 days</option>
-            </select>
+            <div class="controls">
+                historical data for past&nbsp;
+                <select id="windowSize">
+                    <option value="600">10 minutes</option>
+                    <option value="1800">30 minutes</option>
+                    <option value="3600" selected>1 hour</option>
+                    <option value="10800">3 hours</option>
+                    <option value="43200">12 hours</option>
+                    <option value="86400">1 day</option>
+                    <option value="604800">7 days</option>
+                </select>
+            </div>
 
             <div id="container"></div>
 
+            <div id="ppm">&mdash;</div>
+            <div id="temp">&mdash;</div>
+
             <script type="text/javascript">
+
+                let $ppm;
+                let $temp;
+                let constants;
+                let chart;
 
                 document.addEventListener('DOMContentLoaded', async function() {
 
+                    $ppm = document.getElementById('ppm');
+                    $temp = document.getElementById('temp');
+
                     // load settings
                     const rsp = await fetch('/constants');
-                    const constants = await rsp.json();
-                    const {
-                        APP_PORT,
-                        APP_HOST,
-                        STORAGE_FILENAME,
-                        PUBLIC_PATH,
-                        IPC_ID_HTTP_SERVER,
-                        // WINDOW_SECONDS,
-                    } = constants;
+                    constants = await rsp.json();
 
                     // init chart
-                    const chart = initChart();
-
+                    chart = initChart();
 
                     const wsSelect = document.getElementById('windowSize');
                     wsSelect.addEventListener('change', () => {
@@ -103,27 +113,29 @@
                     // fetch points
                     await fetchAndUpdate(chart, wsSelect.value);
 
-                    listenWS(chart, APP_HOST, APP_PORT/*, WINDOW_SECONDS*/);
+                    listenWS(chart);
 
                 });
 
-                function listenWS(chart, host, port/*, WINDOW_SECONDS*/) {
-                    const socket = io(`http://${host}:${port}`);
-                    socket.on('ppm', (point) => {
-                        const { timestamp, ppm } = point;
+                function listenWS() {
+                    const socket = io(`http://${constants.APP_HOST}:${constants.APP_PORT}`);
+                    socket.on(constants.MESSAGE_NAME, (point) => {
+                        const { timestamp, ppm, temperature } = point;
                         const series = chart.series[0];
                         const { points } = series;
-                        const xSize = points.length
-                            ? points[points.length - 1].x - points[0].x
-                            : null;
-                        // const needShift = xSize > WINDOW_SECONDS * 1000;
                         series.addPoint(
                             [ timestamp, ppm ],
                             true,
                             false,
-                            // needShift,
                         );
+                        $ppm.textContent = ppm;
+                        $temp.textContent = temperature;
                         console.log('ws received point: ', point);
+                        // const xSize = points.length
+                        //     ? points[points.length - 1].x - points[0].x
+                        //     : null;
+                        // const needShift = xSize > WINDOW_SECONDS * 1000;
+                        // needShift,
                     });
                 }
 
