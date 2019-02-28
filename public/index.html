@@ -2,7 +2,7 @@
 <html>
 
     <head>
-        <script src="https://code.highcharts.com/highcharts.js"></script>
+        <script src="https://code.highcharts.com/7.0.3/highcharts.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.dev.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.1/moment.min.js"></script>
     </head>
@@ -20,9 +20,6 @@
             font-size: 36px;
             margin: 15px;
             color: #777;
-            /* background: #DCEDC8;
-            border-radius: 5px;
-            padding: 5px; */
         }
 
         .controls {
@@ -73,7 +70,7 @@
                 <select id="windowSize">
                     <option value="600">10 minutes</option>
                     <option value="1800">30 minutes</option>
-                    <option value="3600" selected>1 hour</option>
+                    <option value="3600">1 hour</option>
                     <option value="10800">3 hours</option>
                     <option value="43200">12 hours</option>
                     <option value="86400">1 day</option>
@@ -82,150 +79,177 @@
             </div>
 
             <div id="container"></div>
-
             <div id="ppm">&mdash;</div>
             <div id="temp">&mdash;</div>
 
             <script type="text/javascript">
 
-                let $ppm;
-                let $temp;
-                let constants;
-                let chart;
+                (function () {
 
-                document.addEventListener('DOMContentLoaded', async function() {
+                    let $container;
+                    let $ppm;
+                    let $temp;
+                    let $windowSize;
 
-                    $ppm = document.getElementById('ppm');
-                    $temp = document.getElementById('temp');
+                    let constants;
+                    let chart;
 
-                    // load settings
-                    const rsp = await fetch('/constants');
-                    constants = await rsp.json();
+                    document.addEventListener('DOMContentLoaded', onDomLoad);
 
-                    // init chart
-                    chart = initChart();
+                    function listenWebsocket(chart) {
 
-                    const wsSelect = document.getElementById('windowSize');
-                    wsSelect.addEventListener('change', () => {
-                        fetchAndUpdate(chart, wsSelect.value);
-                    });
+                        console.log('listenWebsocket');
 
-                    // fetch points
-                    await fetchAndUpdate(chart, wsSelect.value);
+                        const socket = io(`http://${constants.APP_HOST}:${constants.APP_PORT}`);
+                        socket.on(constants.MESSAGE_NAME, (point) => {
+                            const { timestamp, ppm, temperature } = point;
+                            const series = chart.series[0];
+                            const { points } = series;
+                            series.addPoint(
+                                [ timestamp, ppm ],
+                                true,
+                                false,
+                            );
+                            $ppm.textContent = ppm;
+                            $temp.textContent = temperature;
+                        });
+                    }
 
-                    listenWS(chart);
+                    async function onDomLoad() {
 
-                });
+                        console.log('onDomLoad');
 
-                function listenWS() {
-                    const socket = io(`http://${constants.APP_HOST}:${constants.APP_PORT}`);
-                    socket.on(constants.MESSAGE_NAME, (point) => {
-                        const { timestamp, ppm, temperature } = point;
-                        const series = chart.series[0];
-                        const { points } = series;
-                        series.addPoint(
-                            [ timestamp, ppm ],
-                            true,
-                            false,
+                        $container = document.getElementById('container');
+                        $ppm = document.getElementById('ppm');
+                        $temp = document.getElementById('temp');
+                        $windowSize = document.getElementById('windowSize');
+
+                        // load settings
+                        constants = await fetchJson('/constants');
+
+                        // set initially selected window size
+                        $windowSize.value = localStorage.getItem('windowSize') || constants.DEFAULT_WINDOW_SIZE;
+
+                        // init chart
+                        chart = initChart($container);
+
+                        // fetch history with points from server
+                        await fetchHistoryAndUpdateChart(chart, parseInt($windowSize.value, 10));
+
+                        // bind windowSize change listener
+                        $windowSize.addEventListener('change', e => {
+                            const windowSize = parseInt(e.target.value, 10);
+                            localStorage.setItem('windowSize', windowSize);
+                            fetchHistoryAndUpdateChart(chart, windowSize);
+                        });
+
+                        // do listen ws
+                        listenWebsocket(chart);
+
+                    }
+
+                    async function fetchHistoryAndUpdateChart(chart, windowSize) {
+                        console.log('fetchHistoryAndUpdateChart');
+                        chart.showLoading('Loading...');
+                        const points = await fetchPoints({ windowSize });
+                        const [ series ] = chart.series;
+                        series.setData(
+                            points,
+                            true,  // redraw
+                            false, // disable animation (speeds up rendering of big series)
+                            false, // disable updatePoints (speeds up rendering of big series)
                         );
-                        $ppm.textContent = ppm;
-                        $temp.textContent = temperature;
-                        console.log('ws received point: ', point);
-                        // const xSize = points.length
-                        //     ? points[points.length - 1].x - points[0].x
-                        //     : null;
-                        // const needShift = xSize > WINDOW_SECONDS * 1000;
-                        // needShift,
-                    });
-                }
+                        chart.hideLoading();
+                    }
 
-                async function fetchAndUpdate(chart, windowSize) {
-                    const points = await fetchPoints({ windowSize });
-                    chart.series[0].update({ data: points });
-                }
+                    async function fetchPoints({ windowSize }) {
+                        return fetchJson(`/json?windowSize=${windowSize}`);
+                    }
 
-                async function fetchPoints({ windowSize }) {
-                    const rsp = await fetch(`/json?windowSize=${windowSize}`);
-                    return rsp.json();
-                }
+                    async function fetchJson(url) {
+                        const rsp = await fetch(url);
+                        return rsp.json();
+                    }
 
-                function initChart() {
-                    Highcharts.setOptions({
-                        time: {
-                            timezoneOffset: -3 * 60
-                        }
-                    });
-                    return Highcharts.chart('container', {
-
-                        credits: {
-                            enabled: false
-                        },
-
-                        chart: {
-                            zoomType: 'x'
-                        },
-                        title: {
-                            text: null,
-                            // text: `co2 ppm for last ${moment().subtract(WINDOW_SECONDS, 'seconds').toNow(true)}`
-                        },
-                        xAxis: {
-                            type: 'datetime'
-                        },
-                        yAxis: {
-                            // min: 350,
-                            // max: 2000,
-                            title: null
-                        },
-                        legend: {
-                            enabled: false
-                        },
-                        plotOptions: {
-                            area: {
-                                // fillColor: {
-                                //     linearGradient: {
-                                //         x1: 0,
-                                //         y1: 0,
-                                //         x2: 0,
-                                //         y2: 1
-                                //     },
-                                //     stops: [
-                                //         [0, Highcharts.getOptions().colors[0]],
-                                //         [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
-                                //     ]
-                                // },
-                                marker: {
-                                    radius: 2
-                                },
-                                lineWidth: 1,
-                                states: {
-                                    hover: {
-                                        lineWidth: 1
-                                    }
-                                },
-                                threshold: null,
-                            },
-                            series: {
-                                zones: [{
-                                    value: 700,
-                                    className: 'zone-good'
-                                }, {
-                                    value: 1300,
-                                    className: 'zone-warn'
-                                }, {
-                                    className: 'zone-bad'
-                                }],
-                                // threshold: -10
+                    function initChart(container) {
+                        Highcharts.setOptions({
+                            time: {
+                                useUTC: false // use browser time
                             }
-                        },
+                        });
+                        return Highcharts.chart(container, {
 
-                        series: [{
-                            type: 'area',
-                            name: 'co2 ppm',
-                            // data,
-                        }]
+                            credits: {
+                                enabled: false
+                            },
 
-                    });
-                }
+                            chart: {
+                                zoomType: 'x'
+                            },
+                            title: {
+                                text: null,
+                                // text: `co2 ppm for last ${moment().subtract(WINDOW_SECONDS, 'seconds').toNow(true)}`
+                            },
+                            xAxis: {
+                                type: 'datetime'
+                            },
+                            yAxis: {
+                                // min: 350,
+                                // max: 2000,
+                                title: null
+                            },
+                            legend: {
+                                enabled: false
+                            },
+                            plotOptions: {
+                                area: {
+                                    // fillColor: {
+                                    //     linearGradient: {
+                                    //         x1: 0,
+                                    //         y1: 0,
+                                    //         x2: 0,
+                                    //         y2: 1
+                                    //     },
+                                    //     stops: [
+                                    //         [0, Highcharts.getOptions().colors[0]],
+                                    //         [1, Highcharts.Color(Highcharts.getOptions().colors[0]).setOpacity(0).get('rgba')]
+                                    //     ]
+                                    // },
+                                    marker: {
+                                        radius: 2
+                                    },
+                                    lineWidth: 1,
+                                    states: {
+                                        hover: {
+                                            lineWidth: 1
+                                        }
+                                    },
+                                    threshold: null,
+                                },
+                                series: {
+                                    zones: [{
+                                        value: 700,
+                                        className: 'zone-good'
+                                    }, {
+                                        value: 1300,
+                                        className: 'zone-warn'
+                                    }, {
+                                        className: 'zone-bad'
+                                    }],
+                                    // threshold: -10
+                                }
+                            },
+
+                            series: [{
+                                type: 'area',
+                                name: 'co2 ppm',
+                                // data,
+                            }]
+
+                        });
+                    }
+
+                }());
 
             </script>
 

@@ -4,10 +4,12 @@ module.exports = {
     APP_HOST: 'localhost',
     STORAGE_FILENAME: 'storage.db',
     PUBLIC_PATH: 'public',
-    UART_ADAPTER: '/dev/tty.wchusbserial1420',
+    UART_ADAPTER: '/dev/ttyUSB0',
+    // UART_ADAPTER: '/dev/tty.wchusbserial1420',
     MH_REQUEST_INTERVAL: 5000,
     IPC_ID_HTTP_SERVER: 'ipc-http-server',
     IPC_ID_MH: 'ipc-mh',
     MESSAGE_NAME: 'point',
+    DEFAULT_WINDOW_SIZE: 3600,
     // WINDOW_SECONDS: 300,
 };
