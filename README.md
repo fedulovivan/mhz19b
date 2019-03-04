@@ -32,3 +32,7 @@ Application is written on javascript and consists of two separate modules commun
 # Schematics
 
 ![Schematics](https://raw.githubusercontent.com/fedulovivan/mhz19b/master/Schematics.png)
+
+# Misc
+reproduce socket.io issue
+`curl -H "Origin: http://wertwertffff.com" --verbose http://localhost:8888/socket.io/`

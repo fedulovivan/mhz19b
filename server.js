@@ -42,7 +42,7 @@ ipc.server.start();
 
 const app = Express();
 const server = Http.Server(app);
-const io = SocketIo(server);
+const io = SocketIo(server, { origins: 'http://localhost:8888' });
 
 const db = new Datastore({
     filename: STORAGE_FILENAME,
