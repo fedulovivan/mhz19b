@@ -11,7 +11,7 @@ const SocketIo = require('socket.io');
 const Http = require('http');
 const ipc = require('node-ipc');
 const internalBus = new (require('events'))();
-// const opn = require('opn');
+const debug = require('debug')('mhz19b');
 
 const constants = require('./const');
 const {
@@ -30,14 +30,13 @@ ipc.config.id = IPC_ID_HTTP_SERVER;
 ipc.config.retry = 1500;
 ipc.config.silent = true;
 ipc.serve();
-ipc.server.on('start', () => console.log(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
+ipc.server.on('start', () => debug(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
 ipc.server.on(MESSAGE_NAME, point => internalBus.emit(MESSAGE_NAME, point));
 ipc.server.on('connect', socket => {
     const clientId = ++ipcClientIdSeq;
-    console.log(`new ipc client connection id=${clientId}`);
-    socket.on('close', () => console.log(`ipc client id=${clientId} socket closed`));
+    debug(`new ipc client connection id=${clientId}`);
+    socket.on('close', () => debug(`ipc client id=${clientId} socket closed`));
 });
-// ipc.server.on('error', error => console.error(`error: ${error}`));
 ipc.server.start();
 
 const app = Express();
@@ -50,11 +49,11 @@ const db = new Datastore({
 });
 
 io.on('connection', function(socket) {
-    console.log(`new ws connection id=${socket.id}`);
+    debug(`new ws connection id=${socket.id}`);
     const ppmHandler = point => socket.emit(MESSAGE_NAME, point);
     internalBus.on(MESSAGE_NAME, ppmHandler);
     socket.on('disconnect', () => {
-        console.log(`ws id=${socket.id} disconnected`);
+        debug(`ws id=${socket.id} disconnected`);
         internalBus.removeListener(MESSAGE_NAME, ppmHandler);
     });
 });
@@ -72,10 +71,10 @@ app.get(
 
         const tick = Date.now();
 
-        console.log(`received request to ${req.path}`);
+        debug(`received request to ${req.path}`);
 
         if (size(req.query)) {
-            console.log(`query params: ${JSON.stringify(req.query)}`);
+            debug(`query params: ${JSON.stringify(req.query)}`);
         }
 
         const windowSize = parseInt(req.query.windowSize, 10);
@@ -100,7 +99,7 @@ app.get(
             .exec((err, points) => {
                 const json = points.map(({ timestamp, ppm }) => [timestamp.getTime(), ppm]);
                 const delta = Date.now() - tick;
-                console.log(`data prepared in ${delta}ms, sending response`);
+                debug(`data prepared in ${delta}ms, sending response`);
                 res.json(json);
             });
         });
@@ -112,11 +111,11 @@ app.use(Express.static(PUBLIC_PATH));
 
 server.listen(APP_PORT, (err) => {
     if (err) {
-        console.error(`failed to launch server: ${err}`);
+        debug(`failed to launch server: ${err}`);
     } else {
-        console.log(`listening on ${APP_HOST}:${APP_PORT}`)
+        debug(`listening on ${APP_HOST}:${APP_PORT}`)
         const browserLink = `http://${APP_HOST}:${APP_PORT}/`;
-        console.log(`open browser at ${browserLink}`)
+        debug(`open browser at ${browserLink}`)
     }
 });
 
