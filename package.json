@@ -2,6 +2,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "compression": "^1.7.3",
     "debug": "^4.1.1",
     "express": "^4.16.3",
     "lodash": "^4.17.10",

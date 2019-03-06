@@ -5,6 +5,7 @@
 
 const Datastore = require('nedb');
 const moment = require('moment');
+const compression = require('compression');
 const Express = require('express');
 const { size } = require('lodash/collection');
 const SocketIo = require('socket.io');
@@ -41,12 +42,14 @@ ipc.server.start();
 
 const app = Express();
 const server = Http.Server(app);
+app.use(compression());
 const io = SocketIo(server, { origins: 'http://localhost:8888' });
 
 const db = new Datastore({
     filename: STORAGE_FILENAME,
     autoload: false,
 });
+// db.ensureIndex({ fieldName: 'timestamp' });
 
 io.on('connection', function(socket) {
     debug(`new ws connection id=${socket.id}`);
@@ -94,14 +97,25 @@ app.get(
                 return res.json({ error });
             }
             db
-            .find(where)
-            .sort({ timestamp: 1 })
-            .exec((err, points) => {
-                const json = points.map(({ timestamp, ppm }) => [timestamp.getTime(), ppm]);
-                const delta = Date.now() - tick;
-                debug(`data prepared in ${delta}ms, sending response`);
-                res.json(json);
-            });
+                .find(where)
+                .sort({ timestamp: 1 })
+                .exec((err, points) => {
+                    // reduce max amount of points in response
+                    const maxPoints = 3000;
+                    const totalPoints = points.length;
+                    const eachN = Math.max(1, Math.floor(totalPoints / maxPoints));
+                    debug(`Fetched ${totalPoints} points from DB, max in response = ${maxPoints}. Going to take each ${eachN} point`);
+                    const jsonArray = [];
+                    points.forEach(({ timestamp, ppm, temperature }, index) => {
+                        if (index % eachN === 0) {
+                            jsonArray.push([timestamp.getTime(), ppm, temperature]);
+                        }
+                    });
+                    debug(`Result was reduced to ${jsonArray.length} points`);
+                    const delta = Date.now() - tick;
+                    debug(`data prepared in ${delta}ms, sending response`);
+                    res.json(jsonArray);
+                });
         });
 
     }

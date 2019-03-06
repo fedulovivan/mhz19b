@@ -2,9 +2,9 @@
 <html>
 
     <head>
-        <script src="/js/highcharts.js"></script>
-        <script src="/js/socket.io.dev.js"></script>
-        <script src="/js/moment.min.js"></script>
+        <script async src="/js/highcharts.js"></script>
+        <script async src="/js/socket.io.dev.js"></script>
+        <script async src="/js/moment.min.js"></script>
     </head>
 
     <style type="text/css">
@@ -33,10 +33,11 @@
         }
 
         #ppm {
-            top: 0
+            top: 0;
+            right: 55px;
         }
         #temp {
-            right: 34px;
+            right: 88px;
             top: 36px
         }
 
@@ -94,7 +95,7 @@
                     let constants;
                     let chart;
 
-                    document.addEventListener('DOMContentLoaded', onDomLoad);
+                    window.addEventListener('load', onLoad);
 
                     function listenWebsocket(chart) {
 
@@ -103,21 +104,26 @@
                         const socket = io(`http://${constants.APP_HOST}:${constants.APP_PORT}`);
                         socket.on(constants.MESSAGE_NAME, (point) => {
                             const { timestamp, ppm, temperature } = point;
-                            const series = chart.series[0];
-                            const { points } = series;
-                            series.addPoint(
+                            const seriesPpm = chart.series[0];
+                            const seriesTemp = chart.series[1];
+                            seriesPpm.addPoint(
                                 [ timestamp, ppm ],
                                 true,
                                 false,
+                            );
+                            seriesTemp.addPoint(
+                                [ timestamp, temperature ],
+                                true,
+                                false
                             );
                             $ppm.textContent = ppm;
                             $temp.textContent = temperature;
                         });
                     }
 
-                    async function onDomLoad() {
+                    async function onLoad() {
 
-                        console.log('onDomLoad');
+                        console.log('onLoad');
 
                         $container = document.getElementById('container');
                         $ppm = document.getElementById('ppm');
@@ -152,9 +158,15 @@
                         console.log('fetchHistoryAndUpdateChart');
                         chart.showLoading('Loading...');
                         const points = await fetchPoints({ windowSize });
-                        const [ series ] = chart.series;
-                        series.setData(
-                            points,
+                        const [ seriesPpm, seriesTemp ] = chart.series;
+                        seriesPpm.setData(
+                            points.map(([ timestamp, ppm, temperature ]) => ([timestamp, ppm])),
+                            true,  // redraw
+                            false, // disable animation (speeds up rendering of big series)
+                            false, // disable updatePoints (speeds up rendering of big series)
+                        );
+                        seriesTemp.setData(
+                            points.map(([ timestamp, ppm, temperature ]) => ([timestamp, temperature])),
                             true,  // redraw
                             false, // disable animation (speeds up rendering of big series)
                             false, // disable updatePoints (speeds up rendering of big series)
@@ -191,6 +203,11 @@
                                     }
                                 }
                             },
+
+                            boost: {
+                                useGPUTranslations: true
+                            },
+
                             title: {
                                 text: null,
                                 // text: `co2 ppm for last ${moment().subtract(WINDOW_SECONDS, 'seconds').toNow(true)}`
@@ -198,11 +215,17 @@
                             xAxis: {
                                 type: 'datetime'
                             },
-                            yAxis: {
-                                // min: 350,
-                                // max: 2000,
-                                title: null
-                            },
+                            yAxis: [{
+                                title: {
+                                    text: `PPM`,
+                                }
+                            }, {
+                                opposite: true,
+                                allowDecimals: false,
+                                title: {
+                                    text: `°C`,
+                                }
+                            }],
                             legend: {
                                 enabled: false
                             },
@@ -241,14 +264,18 @@
                                     }, {
                                         className: 'zone-bad'
                                     }],
-                                    // threshold: -10
                                 }
                             },
 
                             series: [{
                                 type: 'area',
-                                name: 'co2 ppm',
-                                // data,
+                                name: 'co2 PPM',
+                                yAxis: 0,
+                            }, {
+                                type: 'spline',
+                                name: 'Temperature',
+                                yAxis: 1,
+                                color: '#bbb'
                             }]
 
                         });
