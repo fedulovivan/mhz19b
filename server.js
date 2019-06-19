@@ -12,7 +12,7 @@ const SocketIo = require('socket.io');
 const Http = require('http');
 const ipc = require('node-ipc');
 const internalBus = new (require('events'))();
-const debug = require('debug')('mhz19b');
+const debug = require('debug')('mhz19b-server');
 
 const constants = require('./const');
 const {
@@ -45,11 +45,15 @@ const server = Http.Server(app);
 app.use(compression());
 const io = SocketIo(server, { origins: 'http://localhost:8888' });
 
+debug(`Loading database...`);
 const db = new Datastore({
     filename: STORAGE_FILENAME,
-    autoload: false,
+    autoload: true,
 });
-// db.ensureIndex({ fieldName: 'timestamp' });
+debug(`Done`);
+
+// once enabled this action "corrupts" database file and its not possible to load it anymore
+// db.ensureIndex({ fieldName: 'timestamp' }, debug);
 
 io.on('connection', function(socket) {
     debug(`new ws connection id=${socket.id}`);
@@ -92,30 +96,27 @@ app.get(
             },
         };
 
-        db.loadDatabase(error => {
-            if (error) {
-                return res.json({ error });
+        db
+        .find(where)
+        .sort({ timestamp: 1 })
+        .exec((err, points) => {
+            // reduce max amount of points in response
+            const maxPoints = 3000;
+            const totalPoints = points.length;
+            const eachN = Math.max(1, Math.floor(totalPoints / maxPoints));
+            debug(`Fetched ${totalPoints} points from DB, max in response = ${maxPoints}. Going to take each ${eachN} point`);
+            const resultedArray = [];
+            points.forEach(({ timestamp, ppm, temperature }, index) => {
+                if (index % eachN === 0) {
+                    resultedArray.push([timestamp.getTime(), ppm, temperature]);
+                }
+            });
+            if (resultedArray.length < totalPoints) {
+                debug(`Result was reduced to ${resultedArray.length} points`);
             }
-            db
-                .find(where)
-                .sort({ timestamp: 1 })
-                .exec((err, points) => {
-                    // reduce max amount of points in response
-                    const maxPoints = 3000;
-                    const totalPoints = points.length;
-                    const eachN = Math.max(1, Math.floor(totalPoints / maxPoints));
-                    debug(`Fetched ${totalPoints} points from DB, max in response = ${maxPoints}. Going to take each ${eachN} point`);
-                    const jsonArray = [];
-                    points.forEach(({ timestamp, ppm, temperature }, index) => {
-                        if (index % eachN === 0) {
-                            jsonArray.push([timestamp.getTime(), ppm, temperature]);
-                        }
-                    });
-                    debug(`Result was reduced to ${jsonArray.length} points`);
-                    const delta = Date.now() - tick;
-                    debug(`data prepared in ${delta}ms, sending response`);
-                    res.json(jsonArray);
-                });
+            const delta = Date.now() - tick;
+            debug(`data prepared in ${delta}ms, sending response`);
+            res.json(resultedArray);
         });
 
     }
