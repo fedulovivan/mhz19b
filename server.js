@@ -5,13 +5,14 @@
 
 const Datastore = require('nedb');
 const moment = require('moment');
+const compression = require('compression');
 const Express = require('express');
 const { size } = require('lodash/collection');
 const SocketIo = require('socket.io');
 const Http = require('http');
 const ipc = require('node-ipc');
 const internalBus = new (require('events'))();
-// const opn = require('opn');
+const debug = require('debug')('mhz19b-server');
 
 const constants = require('./const');
 const {
@@ -30,31 +31,36 @@ ipc.config.id = IPC_ID_HTTP_SERVER;
 ipc.config.retry = 1500;
 ipc.config.silent = true;
 ipc.serve();
-ipc.server.on('start', () => console.log(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
+ipc.server.on('start', () => debug(`started ipc server id=${IPC_ID_HTTP_SERVER}`));
 ipc.server.on(MESSAGE_NAME, point => internalBus.emit(MESSAGE_NAME, point));
 ipc.server.on('connect', socket => {
     const clientId = ++ipcClientIdSeq;
-    console.log(`new ipc client connection id=${clientId}`);
-    socket.on('close', () => console.log(`ipc client id=${clientId} socket closed`));
+    debug(`new ipc client connection id=${clientId}`);
+    socket.on('close', () => debug(`ipc client id=${clientId} socket closed`));
 });
-// ipc.server.on('error', error => console.error(`error: ${error}`));
 ipc.server.start();
 
 const app = Express();
 const server = Http.Server(app);
-const io = SocketIo(server);
+app.use(compression());
+const io = SocketIo(server, { origins: 'http://localhost:8888' });
 
+debug(`Loading database...`);
 const db = new Datastore({
     filename: STORAGE_FILENAME,
-    autoload: false,
+    autoload: true,
 });
+debug(`Done`);
+
+// once enabled this action "corrupts" database file and its not possible to load it anymore
+// db.ensureIndex({ fieldName: 'timestamp' }, debug);
 
 io.on('connection', function(socket) {
-    console.log(`new ws connection id=${socket.id}`);
+    debug(`new ws connection id=${socket.id}`);
     const ppmHandler = point => socket.emit(MESSAGE_NAME, point);
     internalBus.on(MESSAGE_NAME, ppmHandler);
     socket.on('disconnect', () => {
-        console.log(`ws id=${socket.id} disconnected`);
+        debug(`ws id=${socket.id} disconnected`);
         internalBus.removeListener(MESSAGE_NAME, ppmHandler);
     });
 });
@@ -72,10 +78,10 @@ app.get(
 
         const tick = Date.now();
 
-        console.log(`received request to ${req.path}`);
+        debug(`received request to ${req.path}`);
 
         if (size(req.query)) {
-            console.log(`query params: ${JSON.stringify(req.query)}`);
+            debug(`query params: ${JSON.stringify(req.query)}`);
         }
 
         const windowSize = parseInt(req.query.windowSize, 10);
@@ -90,19 +96,27 @@ app.get(
             },
         };
 
-        db.loadDatabase(error => {
-            if (error) {
-                return res.json({ error });
-            }
-            db
-            .find(where)
-            .sort({ timestamp: 1 })
-            .exec((err, points) => {
-                const json = points.map(({ timestamp, ppm }) => [timestamp.getTime(), ppm]);
-                const delta = Date.now() - tick;
-                console.log(`data prepared in ${delta}ms, sending response`);
-                res.json(json);
+        db
+        .find(where)
+        .sort({ timestamp: 1 })
+        .exec((err, points) => {
+            // reduce max amount of points in response
+            const maxPoints = 3000;
+            const totalPoints = points.length;
+            const eachN = Math.max(1, Math.floor(totalPoints / maxPoints));
+            debug(`Fetched ${totalPoints} points from DB, max in response = ${maxPoints}. Going to take each ${eachN} point`);
+            const resultedArray = [];
+            points.forEach(({ timestamp, ppm, temperature }, index) => {
+                if (index % eachN === 0) {
+                    resultedArray.push([timestamp.getTime(), ppm, temperature]);
+                }
             });
+            if (resultedArray.length < totalPoints) {
+                debug(`Result was reduced to ${resultedArray.length} points`);
+            }
+            const delta = Date.now() - tick;
+            debug(`data prepared in ${delta}ms, sending response`);
+            res.json(resultedArray);
         });
 
     }
@@ -112,11 +126,11 @@ app.use(Express.static(PUBLIC_PATH));
 
 server.listen(APP_PORT, (err) => {
     if (err) {
-        console.error(`failed to launch server: ${err}`);
+        debug(`failed to launch server: ${err}`);
     } else {
-        console.log(`listening on ${APP_HOST}:${APP_PORT}`)
+        debug(`listening on ${APP_HOST}:${APP_PORT}`)
         const browserLink = `http://${APP_HOST}:${APP_PORT}/`;
-        console.log(`open browser at ${browserLink}`)
+        debug(`open browser at ${browserLink}`)
     }
 });
 

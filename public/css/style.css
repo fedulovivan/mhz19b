@@ -1,0 +1,52 @@
+#container {
+    height: calc(100vh - 48px);
+}
+
+#ppm,
+#temp {
+    position: fixed;
+    right: 0;
+    font-size: 36px;
+    margin: 15px;
+    color: #777;
+}
+
+.controls {
+    display: flex;
+}
+.controls,
+.controls > select
+{
+    font-size: 24px;
+    color: #777;
+}
+
+#ppm {
+    top: 0;
+    right: 55px;
+}
+#temp {
+    right: 88px;
+    top: 36px
+}
+
+#temp:after {
+    content: ' °C';
+}
+
+#ppm:after {
+    content: ' PPM';
+}
+
+.highcharts-area.zone-good {
+    fill: #DCEDC8;
+    opacity: .5;
+}
+.highcharts-area.zone-warn {
+    fill: #FFECB3;
+    opacity: .5;
+}
+.highcharts-area.zone-bad {
+    fill: #FFAB91;
+    opacity: .5;
+}

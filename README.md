@@ -20,12 +20,12 @@ Application is written on javascript and consists of two separate modules commun
 - Discover serial device name in your OS
 - Set actual name via UART_ADAPTER constant in constants.js
 - Launch client app with `yarn mh` (or if you prefer `npm mh`)
-- Launch http server with `yarn server` (or `npm server`)
+- Launch http server with `DEBUG=* yarn server` (or `npm server`)
 - Head your browser to http://localhost:8888
 
 # Requirements
 
-- Hardware platform whcih may run nodejs (tested on 8.3.0)
+- Hardware platform which may run nodejs (tested on 8.3.0)
 - Sensor module itself
 - USB to UART converter with support of 3.3v logical levels (does not required on platforms having build-in UART interface, like Raspberry PI)
 

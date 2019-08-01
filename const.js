@@ -9,5 +9,6 @@ module.exports = {
     IPC_ID_HTTP_SERVER: 'ipc-http-server',
     IPC_ID_MH: 'ipc-mh',
     MESSAGE_NAME: 'point',
+    DEFAULT_WINDOW_SIZE: 3600,
     // WINDOW_SECONDS: 300,
 };
