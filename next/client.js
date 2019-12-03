@@ -5,7 +5,10 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import moment from 'moment';
-import * as d3 from 'd3';
+// import * as d3 from 'd3';
+import SelectField from 'material-ui/SelectField';
+import MenuItem from 'material-ui/MenuItem';
+import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 
 const dbclient = nano('http://localhost:5984');
 const db = dbclient.use('mqtt');
@@ -49,51 +52,69 @@ function Root() {
     // const ticks = domainToday.ticks(d3.timeHour.every(1));
 
     return (
-        <div>
-            <ResponsiveContainer width = "100%" height = {500}>
-                <LineChart data={docs}>
-                    <Tooltip />
-                    <Legend />
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
+        <MuiThemeProvider>
+            <div>
+                <ResponsiveContainer width = "100%" height = {500}>
+                    <LineChart data={docs}>
+                        <Tooltip />
+                        <Legend />
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
 
-                        // domain={domainToday}
-                        // ticks={ticks}
-                        // tickFormatter={timeFormatter}
+                            // domain={domainToday}
+                            // ticks={ticks}
+                            // tickFormatter={timeFormatter}
 
-                        dataKey="timestamp"
+                            dataKey="timestamp"
 
-                        // domain = {['auto', 'auto']}
-                        name = 'Time'
-                        tickFormatter = {(unixTime) => moment(unixTime).format('HH:mm:ss')}
-                        // type = 'number'
+                            // domain = {['auto', 'auto']}
+                            name = 'Time'
+                            tickFormatter = {(unixTime) => moment(unixTime).format('HH:mm:ss')}
+                            // type = 'number'
 
-                        // scale='time'
-                        // type='number'
-                        // interval={300}
-                        // name="Time"
-                        // tickFormatter={v => {
-                        //     return moment(v).format('HH:mm:ss');
-                        // }}
+                            // scale='time'
+                            // type='number'
+                            // interval={300}
+                            // name="Time"
+                            // tickFormatter={v => {
+                            //     return moment(v).format('HH:mm:ss');
+                            // }}
 
-                    />
-                    <YAxis name="CO2" />
-                    <Line dataKey="co2" dot={false}/>
-                </LineChart>
-            </ResponsiveContainer>
-            <select
-                onChange={e => setHistoryOption(Number(e.target.value))}
-                value={historyOption}
-            >
-                {historyOptions.map(item => {
-                    return (
-                        <option key={item.name} value={item.value}>
-                            {item.name}
-                        </option>
-                    );
-                })}
-            </select>
-        </div>
+                        />
+                        <YAxis name="CO2" />
+                        <Line dataKey="co2" dot={false}/>
+                    </LineChart>
+                </ResponsiveContainer>
+                <SelectField
+                    value={historyOption}
+                    onChange={(event, key, value) => {
+                        setHistoryOption(value);
+                    }}
+                >
+                    {historyOptions.map(item => {
+                        return (
+                            <MenuItem
+                                value={item.value}
+                                key={item.value}
+                                primaryText={item.name}
+                            />
+                        );
+                    })}
+                </SelectField>
+                {/* <select
+                    onChange={e => setHistoryOption(Number(e.target.value))}
+                    value={historyOption}
+                >
+                    {historyOptions.map(item => {
+                        return (
+                            <option key={item.name} value={item.value}>
+                                {item.name}
+                            </option>
+                        );
+                    })}
+                </select> */}
+            </div>
+        </MuiThemeProvider>
     );
 
 }
