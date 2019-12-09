@@ -5,5 +5,3 @@ yarn-debug.log*
 yarn-error.log*
 storage.db
 public/res.json
-next/.cache
-next/dist

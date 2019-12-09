@@ -1,0 +1,39 @@
+topic: zigbee2mqtt/bridge/log
+json: { type: 'device_removed',
+  message: 'left_network',
+  meta: { friendly_name: '0x00158d00040356af' } }
+
+topic: zigbee2mqtt/bridge/log
+json: { type: 'device_connected',
+  message: { friendly_name: '0x00158d00040356af' } }
+
+topic: zigbee2mqtt/bridge/log
+json: { type: 'pairing',
+  message: 'interview_started',
+  meta: { friendly_name: '0x00158d00040356af' } }
+
+topic: zigbee2mqtt/0x00158d00040356af
+json: { battery: 100,
+  voltage: 3055,
+  linkquality: 86,
+  last_seen: '2019-12-07T19:37:46.246Z' }
+
+topic: zigbee2mqtt/bridge/log
+json: { type: 'pairing',
+  message: 'interview_successful',
+  meta:
+   { friendly_name: '0x00158d00040356af',
+     model: 'SJCGQ11LM',
+     vendor: 'Xiaomi',
+     description: 'Aqara water leak sensor',
+     supported: true } }
+
+topic: zigbee2mqtt/bridge/log
+json: { type: 'pairing',
+  message: 'interview_successful',
+  meta:
+   { friendly_name: '0x00158d00040356af',
+     model: 'SJCGQ11LM',
+     vendor: 'Xiaomi',
+     description: 'Aqara water leak sensor',
+     supported: true } }

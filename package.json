@@ -3,26 +3,18 @@
   "private": true,
   "dependencies": {
     "compression": "^1.7.3",
-    "d3": "^5.14.2",
     "debug": "^4.1.1",
     "express": "^4.16.3",
     "lodash": "^4.17.10",
-    "material-ui": "^0.20.2",
     "moment": "^2.24.0",
-    "mqtt": "^3.0.0",
-    "nano": "^8.1.0",
     "nedb": "^1.8.0",
     "node-ipc": "^9.1.1",
     "opn": "^5.3.0",
-    "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "recharts": "^1.8.5",
     "serialport": "^6.2.0",
     "socket.io": "2.2.0"
   },
   "scripts": {
     "mh": "node mh.js",
-    "server": "node server.js",
-    "parcel": "parcel next/client.html"
+    "server": "node server.js"
   }
 }

@@ -1,0 +1,30 @@
+{
+  "name": "next",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "parcel:dev": "parcel watch index.html",
+    "parcel:build": "parcel build index.html",
+    "server": "node --experimental-modules server.js"
+  },
+  "type": "module",
+  "dependencies": {
+    "@material-ui/core": "^4.7.2",
+    "d3": "^5.14.2",
+    "debug": "^4.1.1",
+    "express": "^4.17.1",
+    "mqtt": "^3.0.0",
+    "nano": "^8.1.0",
+    "parcel": "^1.12.4",
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0",
+    "recharts": "2.0.0-beta.1",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^6.7.2",
+    "eslint-plugin-react": "^7.17.0"
+  }
+}
