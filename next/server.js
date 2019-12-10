@@ -13,49 +13,49 @@ import {
     MQTT_PASSWORD,
     MQTT_HOST,
     MQTT_PORT,
-    COACHDB_HOST,
-    COACHDB_PORT,
+    COUCHDB_HOST,
+    COUCHDB_PORT,
 } from './constants.js';
 
 const debug = Debug('next-server');
 
 const express = Express();
-const server = Http.Server(express);
+const httpServer = Http.Server(express);
 
-const io = SocketIo(server, { origins: `http://${APP_HOST}:${APP_PORT}` });
+const socketIo = SocketIo(httpServer, { origins: `http://${APP_HOST}:${APP_PORT}` });
 
 const mqttClient = Mqtt.connect(`mqtt://${MQTT_HOST}:${MQTT_PORT}`, {
     username: MQTT_USERNAME,
     password: MQTT_PASSWORD,
 });
 
-const coachdbClient = Nano(`http://${COACHDB_HOST}:${COACHDB_PORT}`);
-const mqttDb = coachdbClient.db.use('mqtt');
-const configsDb = coachdbClient.db.use('configs');
+const couchClient = Nano(`http://${COUCHDB_HOST}:${COUCHDB_PORT}`);
+const mqttDb = couchClient.db.use('mqtt');
+const configsDb = couchClient.db.use('configs');
 
 mqttClient.on('connect', async function () {
     mqttClient.subscribe([
         'zigbee2mqtt/#',
         'homeassistant/#',
-        '/ESP/MH/#',
-        // '/ESP/MH/CO2',
-        // '/ESP/MH/TEMP',
+        '/ESP/MH/CO2',
+        '/ESP/MH/TEMP',
+        // '/ESP/MH/DEBUG',
     ]);
 });
 
 mqttClient.on('message', async function (topic, message) {
     console.log('\ntopic:', topic);
-    const messageString = message.toString();
-    let payloadJson = null;
+    const raw = message.toString();
+    let parsed = null;
     try {
-        payloadJson = JSON.parse(messageString);
-        console.log('json:', payloadJson);
+        parsed = JSON.parse(raw);
+        console.log('json:', parsed);
     } catch(e) {
-        console.log('string:', messageString);
+        console.log('string:', raw);
     }
-    if ((topic.startsWith('homeassistant/sensor') || topic.startsWith('homeassistant/binary_sensor')) && payloadJson) {
+    if (parsed && (topic.startsWith('homeassistant/sensor') || topic.startsWith('homeassistant/binary_sensor'))) {
         try {
-            await configsDb.insert(payloadJson);
+            await configsDb.insert(parsed);
         } catch (e) {
             console.error(e);
         }
@@ -64,23 +64,22 @@ mqttClient.on('message', async function (topic, message) {
         const co2 = parseInt(message, 10);
         const timestamp = (new Date).valueOf();
         try {
-            const res = await mqttDb.insert({
+            await mqttDb.insert({
                 co2,
                 timestamp,
             });
-            // console.log(res);
         } catch (e) {
             console.error(e);
         }
     }
-    io.sockets.emit('mqtt-message', { topic, payload: payloadJson });
+    socketIo.sockets.emit('mqtt-message', { topic, parsed, raw: !parsed ? raw : null });
 });
 
 // app.use('/api', api);
 
 express.use(Express.static(PUBLIC_PATH));
 
-server.listen(APP_PORT, (err) => {
+httpServer.listen(APP_PORT, (err) => {
     if (err) {
         debug(`failed to launch server: ${err}`);
     } else {
@@ -90,27 +89,31 @@ server.listen(APP_PORT, (err) => {
     }
 });
 
-io.on('connection', function(socket) {
+socketIo.on('connection', function(socket) {
 
     debug(`new ws connection id=${socket.id}`);
 
+    // console.log(socket.handshake.query);
+
     const query = {
         selector: {
-            timestamp: { "$gt": 0/* (new Date()).valueOf() - historyOption */ }
+            timestamp: { "$gt": (new Date()).valueOf() - parseInt(socket.handshake.query.historyOption, 10) }
         },
         fields: ["co2", "timestamp"],
         limit: 1000
     };
     mqttDb.find(query).then(response => {
-        socket.emit('init', { docs: response.docs });
+        socket.emit('init', {
+            docs: response.docs
+        });
     });
-
-    // setInterval(() => {
-    //     socket.emit('init', Math.random());
-    // }, 10);
 
     socket.on('disconnect', () => {
         debug(`ws id=${socket.id} disconnected`);
     });
 
+    socket.on('setHistoryOption', console.log);
+
 });
+
+/* (new Date()).valueOf() - historyOption */

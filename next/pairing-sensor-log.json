@@ -37,3 +37,41 @@ json: { type: 'pairing',
      vendor: 'Xiaomi',
      description: 'Aqara water leak sensor',
      supported: true } }
+
+
+
+topic: zigbee2mqtt/0x00158d00040356af
+json: {
+  battery: 100,
+  voltage: 3045,
+  linkquality: 34,
+  last_seen: '2019-12-09T19:15:49.854Z',
+  water_leak: false
+}
+
+topic: zigbee2mqtt/0x00158d000405811b
+json: {
+  battery: 100,
+  voltage: 3075,
+  linkquality: 13,
+  water_leak: false,
+  last_seen: '2019-12-09T19:16:08.612Z'
+}
+
+topic: zigbee2mqtt/0x00158d00040356af
+json: {
+  battery: 100,
+  voltage: 3045,
+  linkquality: 31,
+  last_seen: '2019-12-09T20:05:55.428Z',
+  water_leak: false
+}
+
+topic: zigbee2mqtt/0x00158d000405811b
+json: {
+  battery: 100,
+  voltage: 3075,
+  linkquality: 28,
+  water_leak: false,
+  last_seen: '2019-12-09T20:06:14.965Z'
+}

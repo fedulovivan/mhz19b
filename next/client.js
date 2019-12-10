@@ -20,9 +20,11 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import moment from 'moment';
+import SocketIoClient from 'socket.io-client';
+
 import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
-import SocketIoClient from 'socket.io-client';
+import Paper from '@material-ui/core/Paper';
 
 function Root() {
 
@@ -38,18 +40,28 @@ function Root() {
 
     const [historyOption, setHistoryOption] = useState(HOUR);
 
-    const [CO2, setCO2] = useState(null);
+    const [CO2, setCO2] = useState(0);
+
+    const [temperature, setTemperature] = useState(0);
+
+    const [socket, setSocket] = useState(null);
 
     useEffect(() => {
-        const socket = SocketIoClient(`ws://${APP_HOST}:${APP_PORT}`);
-        socket.on('init', ({ docs }) => {
+        const io = SocketIoClient(`ws://${APP_HOST}:${APP_PORT}`, {
+            query: { historyOption },
+        });
+        setSocket(io);
+        io.on('init', ({ docs }) => {
             setDocs(docs);
         });
-        socket.on('mqtt-message', (message) => {
-            const { topic, payload } = message;
-            console.log(topic, payload);
+        io.on('mqtt-message', (message) => {
+            console.log(message);
+            const { topic, parsed, raw } = message;
             if (topic === '/ESP/MH/CO2') {
-                setCO2(payload);
+                setCO2(parsed);
+            }
+            if (topic === '/ESP/MH/TEMP') {
+                setTemperature(parsed);
             }
         });
     }, []);
@@ -72,8 +84,10 @@ function Root() {
             </ResponsiveContainer>
             <Select
                 value={historyOption}
-                onChange={(event, key, value) => {
+                onChange={(event) => {
+                    const value = parseInt(event.target.value, 10);
                     setHistoryOption(value);
+                    socket.emit("setHistoryOption", value);
                 }}
             >
                 {historyOptions.map(item => {
@@ -85,7 +99,8 @@ function Root() {
                     );
                 })}
             </Select>
-            {CO2}
+            <Paper>{CO2}</Paper>
+            <Paper>{temperature}</Paper>
         </div>
     );
 
