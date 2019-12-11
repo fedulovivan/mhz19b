@@ -3,7 +3,7 @@ import SocketIo from 'socket.io';
 import Mqtt from 'mqtt';
 import Http from 'http';
 import Debug from 'debug';
-import Nano from 'nano';
+import nano from 'nano';
 
 import {
     APP_HOST,
@@ -17,7 +17,7 @@ import {
     COUCHDB_PORT,
 } from './constants.js';
 
-const debug = Debug('next-server');
+const debug = Debug('mhz19');
 
 const express = Express();
 const httpServer = Http.Server(express);
@@ -29,9 +29,12 @@ const mqttClient = Mqtt.connect(`mqtt://${MQTT_HOST}:${MQTT_PORT}`, {
     password: MQTT_PASSWORD,
 });
 
-const couchClient = Nano(`http://${COUCHDB_HOST}:${COUCHDB_PORT}`);
+const couchClient = nano(`http://${COUCHDB_HOST}:${COUCHDB_PORT}`);
 const mqttDb = couchClient.db.use('mqtt');
 const configsDb = couchClient.db.use('configs');
+
+// console.log(couchClient);
+// console.log(mqttDb);
 
 mqttClient.on('connect', async function () {
     mqttClient.subscribe([
@@ -39,7 +42,7 @@ mqttClient.on('connect', async function () {
         'homeassistant/#',
         '/ESP/MH/CO2',
         '/ESP/MH/TEMP',
-        // '/ESP/MH/DEBUG',
+        '/ESP/MH/DEBUG',
     ]);
 });
 
@@ -75,8 +78,6 @@ mqttClient.on('message', async function (topic, message) {
     socketIo.sockets.emit('mqtt-message', { topic, parsed, raw: !parsed ? raw : null });
 });
 
-// app.use('/api', api);
-
 express.use(Express.static(PUBLIC_PATH));
 
 httpServer.listen(APP_PORT, (err) => {
@@ -89,30 +90,39 @@ httpServer.listen(APP_PORT, (err) => {
     }
 });
 
-socketIo.on('connection', function(socket) {
+socketIo.on('connection', async function(socket) {
 
     debug(`new ws connection id=${socket.id}`);
 
-    // console.log(socket.handshake.query);
-
     const query = {
         selector: {
-            timestamp: { "$gt": (new Date()).valueOf() - parseInt(socket.handshake.query.historyOption, 10) }
+            timestamp: {
+                "$gt": (new Date()).valueOf() - parseInt(socket.handshake.query.historyOption, 10)
+            }
         },
         fields: ["co2", "timestamp"],
-        limit: 1000
+        limit: 10000
     };
-    mqttDb.find(query).then(response => {
-        socket.emit('init', {
+
+    try {
+        const response = await mqttDb.find(query);
+        socket.emit('bootstrap', {
             docs: response.docs
         });
-    });
+    } catch (e) {
+        socket.emit('bootstrap', {
+            error: e.message
+        });
+        debug(`mqtt.find failed: ${e.message}`);
+    }
 
     socket.on('disconnect', () => {
         debug(`ws id=${socket.id} disconnected`);
     });
 
-    socket.on('setHistoryOption', console.log);
+    socket.on('setHistoryOption', (...args) => {
+        debug(`setHistoryOption received`, ...args);
+    });
 
 });
 

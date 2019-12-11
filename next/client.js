@@ -1,7 +1,6 @@
 import {
     APP_HOST,
     APP_PORT,
-    PUBLIC_PATH,
     MINUTE,
     HOUR,
     DAY
@@ -9,22 +8,55 @@ import {
 
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+
+import SocketIoClient from 'socket.io-client';
+import classNames from 'classnames';
+
 import {
-    LineChart,
-    Line,
+    XYPlot,
+    LineSeries,
+    VerticalGridLines,
+    HorizontalGridLines,
     XAxis,
     YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer
-} from 'recharts';
-import moment from 'moment';
-import SocketIoClient from 'socket.io-client';
+} from 'react-vis';
 
+import { makeStyles } from '@material-ui/core/styles';
 import Select from '@material-ui/core/Select';
+import Card from '@material-ui/core/Card';
+import CardContent from '@material-ui/core/CardContent';
+import Typography from '@material-ui/core/Typography';
 import MenuItem from '@material-ui/core/MenuItem';
-import Paper from '@material-ui/core/Paper';
+import InputLabel from '@material-ui/core/InputLabel';
+import FormControl from '@material-ui/core/FormControl';
+import grey from '@material-ui/core/colors/grey';
+
+import 'react-vis/dist/style.css';
+
+const useStyles = makeStyles({
+    root: {
+    },
+    cards: {
+        display: 'grid',
+        gridAutoFlow: 'column',
+        gridColumnGap: '24px',
+        justifyContent: 'start',
+    },
+    card: {
+        display: 'grid',
+        gridAutoFlow: 'column',
+    },
+    unit: {
+        alignSelf: 'start',
+        color: grey[500],
+    },
+    value: {
+        // TBD
+    },
+    options: {
+        minWidth: '120px'
+    }
+});
 
 function Root() {
 
@@ -37,22 +69,20 @@ function Root() {
     ];
 
     const [docs, setDocs] = useState([])
-
     const [historyOption, setHistoryOption] = useState(HOUR);
-
     const [CO2, setCO2] = useState(0);
-
     const [temperature, setTemperature] = useState(0);
-
     const [socket, setSocket] = useState(null);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const io = SocketIoClient(`ws://${APP_HOST}:${APP_PORT}`, {
             query: { historyOption },
         });
         setSocket(io);
-        io.on('init', ({ docs }) => {
+        io.on('bootstrap', ({ docs, error }) => {
             setDocs(docs);
+            setError(error);
         });
         io.on('mqtt-message', (message) => {
             console.log(message);
@@ -66,41 +96,79 @@ function Root() {
         });
     }, []);
 
+    const classes = useStyles(/* props */);
+
+    const data = [
+        {x: 0, y: 1},
+        {x: 1, y: 2},
+        {x: 2, y: 4},
+        {x: 3, y: 16},
+        {x: 4, y: 15},
+        {x: 5, y: 10},
+        {x: 6, y: 9},
+        {x: 7, y: 8},
+        {x: 8, y: 3},
+        {x: 9, y: 1}
+    ];
+
     return (
-        <div>
-            <ResponsiveContainer width = "100%" height = {500}>
-                <LineChart data={docs}>
-                    <Tooltip />
-                    <Legend />
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="timestamp"
-                        name = 'Time'
-                        tickFormatter = {(unixTime) => moment(unixTime).format('HH:mm:ss')}
-                    />
-                    <YAxis name="CO2" />
-                    <Line dataKey="co2" dot={false}/>
-                </LineChart>
-            </ResponsiveContainer>
-            <Select
-                value={historyOption}
-                onChange={(event) => {
-                    const value = parseInt(event.target.value, 10);
-                    setHistoryOption(value);
-                    socket.emit("setHistoryOption", value);
-                }}
-            >
-                {historyOptions.map(item => {
-                    return (
-                        <MenuItem
-                            value={item.value}
-                            key={item.value}
-                        >{item.name}</MenuItem>
-                    );
-                })}
-            </Select>
-            <Paper>{CO2}</Paper>
-            <Paper>{temperature}</Paper>
+        <div className={classes.root}>
+            <div className={classes.cards}>
+                <Card>
+                    <CardContent className={classNames(classes.card, classes.options)}>
+                        <FormControl>
+                            <InputLabel>History Window</InputLabel>
+                            <Select
+                                value={historyOption}
+                                onChange={(event) => {
+                                    const value = parseInt(event.target.value, 10);
+                                    setHistoryOption(value);
+                                    socket.emit("setHistoryOption", value);
+                                }}
+                            >
+                                {historyOptions.map(item => {
+                                    return (
+                                        <MenuItem
+                                            value={item.value}
+                                            key={item.value}
+                                        >{item.name}</MenuItem>
+                                    );
+                                })}
+                            </Select>
+                        </FormControl>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <XYPlot width={300} height={200}>
+                        <XAxis />
+                        <YAxis />
+                        <VerticalGridLines />
+                        <HorizontalGridLines />
+                        <LineSeries data={data} />
+                    </XYPlot>
+                </Card>
+                <Card>
+                    <CardContent className={classes.card}>
+                        <Typography className={classes.value} variant="h2">
+                            {CO2}
+                        </Typography>
+                        <Typography className={classes.unit} variant="h5">
+                            CO2
+                        </Typography>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className={classes.card}>
+                        <Typography className={classes.value} variant="h2">
+                            {temperature}
+                        </Typography>
+                        <Typography className={classes.unit} variant="h5">
+                            C
+                        </Typography>
+                    </CardContent>
+                </Card>
+            </div>
+            error: {error}
         </div>
     );
 

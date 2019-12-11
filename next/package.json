@@ -11,6 +11,7 @@
   "type": "module",
   "dependencies": {
     "@material-ui/core": "^4.7.2",
+    "classnames": "^2.2.6",
     "d3": "^5.14.2",
     "debug": "^4.1.1",
     "express": "^4.17.1",
@@ -19,7 +20,7 @@
     "parcel": "^1.12.4",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
-    "recharts": "2.0.0-beta.1",
+    "react-vis": "^1.11.7",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0"
   },
