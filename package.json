@@ -5,7 +5,7 @@
     "compression": "^1.7.3",
     "debug": "^4.1.1",
     "express": "^4.16.3",
-    "lodash": "^4.17.10",
+    "lodash": "^4.17.19",
     "moment": "^2.24.0",
     "nedb": "^1.8.0",
     "node-ipc": "^9.1.1",
